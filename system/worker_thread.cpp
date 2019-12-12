@@ -1206,29 +1206,29 @@ void WorkerThread::create_and_send_batchreq(ClientQueryBatch *msg, uint64_t tid)
     }
 
 
-    bool sharding = true;
+    bool sharding = false;
 
     if(sharding) {
-        //======BETTER APPROACH======//
-        // APPROACH: Completely random nodes in shard
-        // Pick shard randomly
-        // int shard_num = 0;
-        // vector<uint64_t> dest = nodes_to_send_sharding(); // in global.cpp
-
-        //======END BETTER======//
-        
-        //======BASIC APPROACH======//
-        // APPROACH: Numerically adjacent nodes in shard
-        // Pick shard randomly
         int num_shards = 3;
         int num_nodes = 12;
         int nodes_per_shard = num_nodes/num_shards;
         // int nodes_per_shard = g_node_cnt/g_shard_cnt;
+        
+        // Pick shard number randomly
         double r = ((double)rand() / RAND_MAX);
         int shard = r * num_shards;
+        
+        //======BETTER APPROACH (TODO)======//
+        // APPROACH: Completely random nodes in shard
+        // vector<uint64_t> dest = nodes_to_send_sharding(shard_num); // in global.cpp
+        //======END BETTER======//
+        
+        //======BASIC APPROACH======//
+        // APPROACH: Numerically adjacent nodes in shard
         int shard_beg = shard * nodes_per_shard;
-        vector<uint64_t> dest = nodes_to_send(shard_beg, shard_beg + 4) ;
+        vector<uint64_t> dest = nodes_to_send(shard_beg, shard_beg + nodes_per_shard) ;
         //======END BASIC======//
+
         msg_queue.enqueue(get_thd_id(), breq, emptyvec, dest);
         emptyvec.clear();
     } else {

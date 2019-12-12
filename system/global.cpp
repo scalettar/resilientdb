@@ -59,6 +59,7 @@ double g_access_perc = ACCESS_PERC;
 bool g_prt_lat_distr = PRT_LAT_DISTR;
 UInt32 g_node_id = 0;
 UInt32 g_node_cnt = NODE_CNT;
+UInt32 g_shard_cnt = SHARD_CNT;
 UInt32 g_part_cnt = PART_CNT;
 UInt32 g_virtual_part_cnt = VIRTUAL_PART_CNT;
 UInt32 g_core_cnt = CORE_CNT;
@@ -257,6 +258,21 @@ uint64_t get_next_socket(uint64_t tid, uint64_t size)
 
 // Destination for msgs.
 vector<uint64_t> nodes_to_send(uint64_t beg, uint64_t end)
+{
+	vector<uint64_t> dest;
+	for (uint64_t i = beg; i < end; i++)
+	{
+		if (i == g_node_id)
+		{
+			continue;
+		}
+		dest.push_back(i);
+	}
+	return dest;
+}
+
+// Destination for msgs with sharding.
+vector<uint64_t> nodes_to_send_sharding(uint64_t beg, uint64_t end)
 {
 	vector<uint64_t> dest;
 	for (uint64_t i = beg; i < end; i++)
