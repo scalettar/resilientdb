@@ -27,11 +27,10 @@
  */
 RC WorkerThread::process_client_batch(Message *msg)
 {
+    //printf("ClientQueryBatch: %ld, THD: %ld :: CL: %ld :: RQ: %ld\n",msg->txn_id, get_thd_id(), msg->return_node_id, clbtch->cqrySet[0]->requests[0]->key);
+    //fflush(stdout);
+
     ClientQueryBatch *clbtch = (ClientQueryBatch *)msg;
-    printf("ClientQueryBatch: %ld, THD: %ld :: CL: %ld :: RQ: %ld\n",msg->txn_id, get_thd_id(), msg->return_node_id, clbtch->cqrySet[0]->requests[0]->key);
-    fflush(stdout);
-
-
 
     // Authenticate the client signature.
     validate_msg(clbtch);
@@ -76,18 +75,15 @@ RC WorkerThread::process_batch(Message *msg)
 
     BatchRequests *breq = (BatchRequests *)msg;
 
-    printf("BatchRequests: TID:%ld : VIEW: %ld : THD: %ld\n",breq->txn_id, breq->view, get_thd_id());
-    fflush(stdout);
+    //printf("BatchRequests: TID:%ld : VIEW: %ld : THD: %ld\n",breq->txn_id, breq->view, get_thd_id());
+    //fflush(stdout);
 
     // Assert that only a non-primary replica has received this message.
     assert(g_node_id != get_current_view(get_thd_id()));
-    printf(" process batch after assertion\n");
-    fflush(stdout);
 
     // Check if the message is valid.
     validate_msg(breq);
-    printf(" process batch after validate\n");
-    fflush(stdout);
+
 #if VIEW_CHANGES
     // Store the batch as it could be needed during view changes.
     store_batch_msg(breq);
@@ -103,8 +99,6 @@ RC WorkerThread::process_batch(Message *msg)
 
     // Send Prepare messages.
     txn_man->send_pbft_prep_msgs();
-    printf(" after send pbft prep msgs\n");
-    fflush(stdout);
 
     // End the counter for pre-prepare phase as prepare phase starts next.
     double timepre = get_sys_clock() - cntime;
@@ -121,9 +115,6 @@ RC WorkerThread::process_batch(Message *msg)
             break;
         }
     }
-    std::cout<<txn_man->info_prepare.size()<<" batch num prep"<<std::endl;
-    std::cout<<txn_man->is_prepared()<<" is prepared"<<std::endl;
-
 
     // If enough Prepare messages have already arrived.
     if (txn_man->is_prepared())
@@ -203,9 +194,8 @@ RC WorkerThread::process_batch(Message *msg)
  */
 RC WorkerThread::process_pbft_prep_msg(Message *msg)
 {
-
-    cout << "PBFTPrepMessage: TID: " << msg->txn_id << " FROM: " << msg->return_node_id << endl;
-    fflush(stdout);
+    //cout << "PBFTPrepMessage: TID: " << msg->txn_id << " FROM: " << msg->return_node_id << endl;
+    //fflush(stdout);
 
     // Start the counter for prepare phase.
     if (txn_man->prep_rsp_cnt == 2 * g_min_invalid_nodes)
@@ -248,17 +238,14 @@ bool WorkerThread::committed_local(PBFTCommitMessage *msg)
     // Once committed is set for this transaction, no further processing.
     if (txn_man->is_committed())
     {
-
-        cout<<"not commited\n";
-        fflush(stdout);
         return false;
     }
 
     // If BatchRequests messages has not arrived, then hash is empty; return false.
     if (txn_man->get_hash().empty())
     {
-        cout << "hash empty: " << txn_man->get_txn_id() << "\n";
-        fflush(stdout);
+        //cout << "hash empty: " << txn_man->get_txn_id() << "\n";
+        //fflush(stdout);
         txn_man->info_commit.push_back(msg->return_node);
         return false;
     }
@@ -266,10 +253,10 @@ bool WorkerThread::committed_local(PBFTCommitMessage *msg)
     {
         if (!checkMsg(msg))
         {
-             //If message did not match.
-            cout << txn_man->get_hash() << " :: " << msg->hash << "\n";
-            cout << get_current_view(get_thd_id()) << " :: " << msg->view << "\n";
-            fflush(stdout);
+            // If message did not match.
+            //cout << txn_man->get_hash() << " :: " << msg->hash << "\n";
+            //cout << get_current_view(get_thd_id()) << " :: " << msg->view << "\n";
+            //fflush(stdout);
             return false;
         }
     }
@@ -296,46 +283,28 @@ bool WorkerThread::committed_local(PBFTCommitMessage *msg)
  */
 RC WorkerThread::process_pbft_commit_msg(Message *msg)
 {
-    cout << "PBFTCommitMessage: TID " << msg->txn_id << " FROM: " << msg->return_node_id << "\n";
-    fflush(stdout);
-//    if (g_node_id == 0){
-//        if (txn_man->commit_rsp_cnt == 2 * g_min_invalid_nodes_primary + 1) {
-//            cout << "reached 2g+1 primary\n";
-//            fflush(stdout);
-//            txn_man->txn_stats.time_start_commit = get_sys_clock();
-//        }
-//
-//    }
-    //else {
-        if (txn_man->commit_rsp_cnt == 2 * g_min_invalid_nodes + 1) {
-            cout << "reached 2g+1\n";
-            fflush(stdout);
-            txn_man->txn_stats.time_start_commit = get_sys_clock();
-        }
-    //}
+    //cout << "PBFTCommitMessage: TID " << msg->txn_id << " FROM: " << msg->return_node_id << "\n";
+    //fflush(stdout);
+
+    if (txn_man->commit_rsp_cnt == 2 * g_min_invalid_nodes + 1)
+    {
+        txn_man->txn_stats.time_start_commit = get_sys_clock();
+    }
 
     // Check if message is valid.
     PBFTCommitMessage *pcmsg = (PBFTCommitMessage *)msg;
-    //cout<<"before validatemsg\n";
-    //fflush(stdout);
     validate_msg(pcmsg);
-    //cout<<"after_validatemsg\n";
-    //fflush(stdout);
+
     // Check if sufficient number of Commit messages have arrived.
     if (committed_local(pcmsg))
     {
-        cout<<"inside commited local\n";
-        fflush(stdout);
 #if TIMER_ON
         // End the timer for this client batch.
         server_timer->endTimer(txn_man->hash);
 #endif
 
         // Add this message to execute thread's queue.
-        cout<<"before send execute_msg\n";
         send_execute_msg();
-        cout<<"after send execute_msg\n";
-        fflush(stdout);
 
         INC_STATS(get_thd_id(), time_commit, get_sys_clock() - txn_man->txn_stats.time_start_commit);
     }

@@ -1,7 +1,7 @@
 #ifndef _CONFIG_H_ 
 #define _CONFIG_H_ 
 // Specify the number of servers or replicas 
-#define NODE_CNT 12 
+#define NODE_CNT 13 
 // Number of worker threads at primary. For RBFT (6) and other algorithms (5). 
 #define THREAD_CNT 5 
 #define REM_THREAD_CNT 3

@@ -99,7 +99,6 @@ void set_last_valid_txn(uint64_t txn_id);
 /******************************************/
 // Global Parameter
 /******************************************/
-extern UInt32 shard_num;
 extern volatile UInt64 g_row_id;
 extern bool g_part_alloc;
 extern bool g_mem_pad;
@@ -297,7 +296,6 @@ extern uint64_t totKey;
 
 extern uint64_t indexSize;
 extern uint64_t g_min_invalid_nodes;
-extern uint64_t g_min_invalid_nodes_primary;
 
 // Funtion to calculate hash of a string.
 string calculateHash(string str);

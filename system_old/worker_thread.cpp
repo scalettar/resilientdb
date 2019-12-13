@@ -85,30 +85,24 @@ void WorkerThread::setup()
 
 void WorkerThread::process(Message *msg)
 {
-    cout<<"IN process"<<endl;
     RC rc __attribute__((unused));
 
     switch (msg->get_rtype())
     {
     case KEYEX:
         rc = process_key_exchange(msg);
-        cout<<"KEYEX"<<endl;
         break;
     case CL_BATCH:
         rc = process_client_batch(msg);
-            cout<<"cl batch"<<endl;
         break;
     case BATCH_REQ:
         rc = process_batch(msg);
-            cout<<"batch_req"<<endl;
         break;
     case PBFT_CHKPT_MSG:
         rc = process_pbft_chkpt_msg(msg);
-            cout<<"process_pbft_msg"<<endl;
         break;
     case EXECUTE_MSG:
         rc = process_execute_msg(msg);
-        cout<<"process exectue"<<endl;
         break;
 #if VIEW_CHANGES
     case VIEW_CHANGE:
@@ -120,12 +114,9 @@ void WorkerThread::process(Message *msg)
 #endif
     case PBFT_PREP_MSG:
         rc = process_pbft_prep_msg(msg);
-        cout<<"process pbft prep msg"<<endl;
         break;
     case PBFT_COMMIT_MSG:
         rc = process_pbft_commit_msg(msg);
-        cout<<"process pbft commit msg"<<endl;
-
         break;
     default:
         printf("Msg: %d\n", msg->get_rtype());
@@ -734,7 +725,6 @@ RC WorkerThread::run()
         }
 
         process(msg);
-        cout<<"after process"<<endl;
 
         ready_starttime = get_sys_clock();
         if (txn_man)
@@ -798,9 +788,7 @@ void WorkerThread::init_txn_man(YCSBClientQueryMessage *clqry)
  */
 void WorkerThread::send_execute_msg()
 {
-    std::cout<<"executing msg\n";
     Message *tmsg = Message::create_message(txn_man, EXECUTE_MSG);
-
     work_queue.enqueue(get_thd_id(), tmsg, false);
 }
 
@@ -817,8 +805,8 @@ void WorkerThread::send_execute_msg()
  */
 RC WorkerThread::process_execute_msg(Message *msg)
 {
-    cout << "EXECUTE " << msg->txn_id << " :: " << get_thd_id() <<"\n";
-    fflush(stdout);
+    //cout << "EXECUTE " << msg->txn_id << " :: " << get_thd_id() <<"\n";
+    //fflush(stdout);
 
     uint64_t ctime = get_sys_clock();
 
@@ -1206,15 +1194,7 @@ void WorkerThread::create_and_send_batchreq(ClientQueryBatch *msg, uint64_t tid)
     // Storing all the signatures.
     vector<string> emptyvec;
     TxnManager *tman = get_transaction_manager(txn_man->get_txn_id() - 2, 0);
-
-
-    // Send the BatchRequests message to all the other replicas.
-    //[0,1,2,3,4] [5,6,7,8] [8,9,10,11]
-    txnid_t my_tid = txn_man->get_txn_id();
-    UInt32 Nodes_to_send = (((int)my_tid - 99)/100)% shard_num;
-    uint64_t beg = Nodes_to_send * (g_node_cnt - 1)/shard_num + 1;
-    uint64_t end = (Nodes_to_send + 1) * (g_node_cnt - 1)/shard_num + 1;
-    for (uint64_t i = beg; i < end; i++)
+    for (uint64_t i = 0; i < g_node_cnt; i++)
     {
         if (i == g_node_id)
         {
@@ -1224,13 +1204,40 @@ void WorkerThread::create_and_send_batchreq(ClientQueryBatch *msg, uint64_t tid)
         tman->allsign.push_back(breq->signature); // Redundant
         emptyvec.push_back(breq->signature);
     }
-    vector<uint64_t> dest = nodes_to_send(beg, end);
-    std::cout<<txn_man->get_txn_id()<<" TID in send batch request to "<<beg<<" to "<<end<<endl;
-    //vector<uint64_t> dest = nodes_to_send(0, g_node_cnt);
-    std::cout<<g_min_invalid_nodes<< " g min invalud nodes"<<endl;
-    msg_queue.enqueue(get_thd_id(), breq, emptyvec, dest);
 
-    emptyvec.clear();
+
+    bool sharding = true;
+
+    if(sharding) {
+        int num_shards = 3;
+        // int num_nodes = 12;
+        // int nodes_per_shard = num_nodes/num_shards;
+        int nodes_per_shard = g_node_cnt/num_shards;
+        
+        // Pick shard number randomly
+        double r = ((double)rand() / RAND_MAX);
+        int shard = r * num_shards;
+        
+        //======BETTER APPROACH (TODO)======//
+        // APPROACH: Completely random nodes in shard
+        // vector<uint64_t> dest = nodes_to_send_sharding(shard_num); // in global.cpp
+        //======END BETTER======//
+        
+        //======BASIC APPROACH======//
+        // APPROACH: Numerically adjacent nodes in shard
+        int shard_beg = shard * nodes_per_shard;
+        vector<uint64_t> dest = nodes_to_send(shard_beg, shard_beg + nodes_per_shard) ;
+        // vector<uint64_t> dest = nodes_to_send(0, 4);
+        //======END BASIC======//
+
+        msg_queue.enqueue(get_thd_id(), breq, emptyvec, dest);
+        emptyvec.clear();
+    } else {
+        // Send the BatchRequests message to all the other replicas.
+        vector<uint64_t> dest = nodes_to_send(0, g_node_cnt);
+        msg_queue.enqueue(get_thd_id(), breq, emptyvec, dest);
+        emptyvec.clear();
+    }
 }
 
 /** Validates the contents of a message. */
@@ -1241,7 +1248,6 @@ bool WorkerThread::validate_msg(Message *msg)
     case KEYEX:
         break;
     case CL_RSP:
-
         if (!((ClientResponseMessage *)msg)->validate())
         {
             assert(0);
@@ -1304,10 +1310,8 @@ bool WorkerThread::validate_msg(Message *msg)
 /* Checks the hash and view of a message against current request. */
 bool WorkerThread::checkMsg(Message *msg)
 {
-    cout<<"IN check hash"<<endl;
     if (msg->rtype == PBFT_PREP_MSG)
     {
-        cout<<"IN prepare msg"<<endl;
         PBFTPrepMessage *pmsg = (PBFTPrepMessage *)msg;
         if ((txn_man->get_hash().compare(pmsg->hash) == 0) ||
             (get_current_view(get_thd_id()) == pmsg->view))
@@ -1340,8 +1344,8 @@ bool WorkerThread::checkMsg(Message *msg)
  */
 bool WorkerThread::prepared(PBFTPrepMessage *msg)
 {
-    cout << "Inside PREPARED: " << txn_man->get_txn_id() << "\n";
-    fflush(stdout);
+    //cout << "Inside PREPARED: " << txn_man->get_txn_id() << "\n";
+    //fflush(stdout);
 
     // Once prepared is set, no processing for further messages.
     if (txn_man->is_prepared())

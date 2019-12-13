@@ -14,8 +14,6 @@ void Thread::heartbeat()
 
 void Thread::send_init_done_to_all_nodes()
 {
-
-
     for (uint64_t i = 0; i < g_total_node_cnt; i++)
     {
         if (i != g_node_id)

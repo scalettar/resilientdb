@@ -42,7 +42,7 @@ uint64_t g_msg_size = MSG_SIZE_MAX;
 int32_t g_load_per_server = LOAD_PER_SERVER;
 
 bool g_hw_migrate = HW_MIGRATE;
-UInt32 shard_num = 4;
+
 volatile UInt64 g_row_id = 0;
 bool g_part_alloc = PART_ALLOC;
 bool g_mem_pad = MEM_PAD;
@@ -149,9 +149,8 @@ bool keyAvail = false;
 uint64_t totKey = 0;
 
 uint64_t indexSize = 2 * g_client_node_cnt * g_inflight_max;
-uint64_t g_min_invalid_nodes = (((g_node_cnt - 1)/shard_num))/ 3 ; //min number of valid nodes
-//uint64_t g_min_invalid_nodes = (g_node_cnt - 1) / 3;
-// [0,1,2,3,4] [0,5,6,7,8]
+uint64_t g_min_invalid_nodes = (g_node_cnt - 1) / 3; //min number of valid nodes
+
 // Funtion to calculate hash of a string.
 string calculateHash(string str)
 {
@@ -258,6 +257,21 @@ uint64_t get_next_socket(uint64_t tid, uint64_t size)
 
 // Destination for msgs.
 vector<uint64_t> nodes_to_send(uint64_t beg, uint64_t end)
+{
+	vector<uint64_t> dest;
+	for (uint64_t i = beg; i < end; i++)
+	{
+		if (i == g_node_id)
+		{
+			continue;
+		}
+		dest.push_back(i);
+	}
+	return dest;
+}
+
+// Destination for msgs with sharding.
+vector<uint64_t> nodes_to_send_sharding(uint64_t beg, uint64_t end)
 {
 	vector<uint64_t> dest;
 	for (uint64_t i = beg; i < end; i++)
